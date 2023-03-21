@@ -4,7 +4,6 @@
 #include <radio.h>
 #include <RDA5807M.h>
 #include <LiquidCrystal_I2C.h>
-#include <RDSParser.h>
 
 // ----- Fixed settings here. -----
 
@@ -14,49 +13,47 @@
 
 RDA5807M radio; // Create an instance of Class for RDA5807M Chip
 LiquidCrystal_I2C lcd(0x27, 20, 4);
-RDSParser rds;
 
+// rejestr przesowny
 const int latchPin = 10;
 const int clockPin = 11;
 const int dataPin = 12;
 
-void RDS_print(const char *text)
-{
-  Serial.println(text);
-}
+/// przerwania
+const int buttonPin = 2;
+volatile bool muteRadioFlag = false;
+const short DEBOUCE_DELAY = 60;
 
-void RDS_process(uint16_t block1, uint16_t block2, uint16_t block3, uint16_t block4)
-{
-  rds.processData(block1, block2, block3, block4);
-}
-
-void RDS_print_time(uint8_t hour, uint8_t minute)
-{
-  lcd.setCursor(0, 1);
-  lcd.print(hour);
-  lcd.print(minute);
-}
+///PWM
+const int PwmPin = 5;
 
 int mapAnalogFreq(int val)
 {
   return (((float)val / (float)1024) * 100 + 900);
 }
 
-/// Setup a FM only radio configuration
-/// with some debugging on the Serial port
+void muteRadio() {
+  int startTick = millis();
+
+  if(millis() - startTick > DEBOUCE_DELAY)
+  {
+      muteRadioFlag = !muteRadioFlag;
+  }
+} // muteRadio
+
 
 void setup()
 {
   delay(3000);
 
+  //PWM - Buzzer
+  pinMode(PwmPin, OUTPUT);
+
   // shift register setup
   pinMode(latchPin, OUTPUT);
   pinMode(clockPin, OUTPUT);
   pinMode(dataPin, OUTPUT);
-  //
 
-  rds.attachTextCallback(RDS_print);
-  rds.attachTimeCallback(RDS_print_time);
 
   // open the Serial port
   Serial.begin(9600);
@@ -67,7 +64,6 @@ void setup()
   // Print a message to the LCD.
   lcd.backlight();
   lcd.setCursor(0, 0);
-  lcd.print("simea");
 
   // Enable information to the Serial port
   radio.debugEnable(true);
@@ -82,7 +78,7 @@ void setup()
   if (!radio.initWire(Wire))
   {
     Serial.println("no radio chip found.");
-    delay(4000);
+    delay(1000);
     // ESP.restart();
   };
 
@@ -97,12 +93,15 @@ void setup()
   radio.setSoftMute(true);
   radio.setBassBoost(false);
 
-  radio.attachReceiveRDS(RDS_process);
+
+  // przerwania
+  pinMode(buttonPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(buttonPin), muteRadio, FALLING);
 } // setup
 
 void updateLcd()
 {
-  lcd.clear();
+  //lcd.clear();
   char s[12];
   radio.formatFrequency(s, sizeof(s));
   lcd.setCursor(0, 0);
@@ -116,13 +115,12 @@ int calcValue(int oldVal)
 
   if (oldVal != newVal)
   {
+    tone(PwmPin, 1000, 10);
     radio.setFrequency(newVal * 10);
     return newVal;
   }
 
   updateLcd();
-
-  rds.init();
 
   return oldVal;
 } // calcValue
@@ -130,32 +128,38 @@ int calcValue(int oldVal)
 /// show the current chip data every 3 seconds.
 int val = 0;
 
-void testSR()
+void printOnLeds(int val)
 {
-  for (int number = 0; number < 256; number++)
-  {
     digitalWrite(latchPin, LOW);
 
-    shiftOut(dataPin, clockPin, MSBFIRST, number);
+    shiftOut(dataPin, clockPin, MSBFIRST, val);
 
     digitalWrite(latchPin, HIGH);
 
     delay(100);
-  }
 }
+
 void loop()
 {
-
   struct RADIO_INFO info = {};
   radio.getRadioInfo(&info);
 
   lcd.setCursor(0, 1);
-  lcd.print("rds ");
-  lcd.print(info.rds);
-  // lcd.print(info.rssi);
+  lcd.print("rssi ");
+  lcd.print(info.rssi);
+  lcd.setCursor(15, 1);
+  lcd.print(muteRadioFlag);
+  
+  if(muteRadioFlag != radio.getMute())
+  {
+    radio.setMute(muteRadioFlag);
+  }
 
-  // radio.checkRDS();
+  if(info.rssi > 20)  printOnLeds(0b1110);
+  else if(info.rssi > 15) printOnLeds(0b0110);
+  else if(info.rssi > 10) printOnLeds(0b0010);
+  else printOnLeds(0b0);
 
   val = calcValue(val);
-  delay(100); // delay for
+  delay(50); // delay for
 } // loop
