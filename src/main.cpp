@@ -22,7 +22,7 @@ const int dataPin = 12;
 /// przerwania
 const int buttonPin = 2;
 volatile bool muteRadioFlag = false;
-const short DEBOUCE_DELAY = 60;
+const short DEBOUCE_DELAY = 10;
 
 ///PWM
 const int PwmPin = 5;
@@ -32,12 +32,17 @@ int mapAnalogFreq(int val)
   return (((float)val / (float)1024) * 100 + 900);
 }
 
+// TODO: Przycisk dziala dopiero po pewnym czasie hmmm...
+// TODO: Deboucing w tekiej fromie praktycznie zawodzi
+
 void muteRadio() {
   int startTick = millis();
 
-  if(millis() - startTick > DEBOUCE_DELAY)
-  {
-      muteRadioFlag = !muteRadioFlag;
+  if(millis() - startTick > DEBOUCE_DELAY) {
+
+      if(digitalRead(buttonPin) == LOW) {
+        muteRadioFlag = !muteRadioFlag;
+      }
   }
 } // muteRadio
 
@@ -54,6 +59,9 @@ void setup()
   pinMode(clockPin, OUTPUT);
   pinMode(dataPin, OUTPUT);
 
+  // przerwania
+  pinMode(buttonPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(buttonPin), muteRadio, FALLING);
 
   // open the Serial port
   Serial.begin(9600);
@@ -89,14 +97,9 @@ void setup()
   radio.setBandFrequency(FIX_BAND, newVal * 10);
   radio.setVolume(FIX_VOLUME);
   radio.setMono(false);
-  radio.setMute(false);
+  radio.setMute(muteRadioFlag);
   radio.setSoftMute(true);
   radio.setBassBoost(false);
-
-
-  // przerwania
-  pinMode(buttonPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(buttonPin), muteRadio, FALLING);
 } // setup
 
 void updateLcd()
@@ -115,7 +118,7 @@ int calcValue(int oldVal)
 
   if (oldVal != newVal)
   {
-    tone(PwmPin, 1000, 10);
+    tone(PwmPin, 500, 10);
     radio.setFrequency(newVal * 10);
     return newVal;
   }
@@ -148,12 +151,13 @@ void loop()
   lcd.print("rssi ");
   lcd.print(info.rssi);
   lcd.setCursor(15, 1);
-  lcd.print(muteRadioFlag);
-  
+
   if(muteRadioFlag != radio.getMute())
   {
     radio.setMute(muteRadioFlag);
   }
+
+  lcd.print(muteRadioFlag);
 
   if(info.rssi > 20)  printOnLeds(0b1110);
   else if(info.rssi > 15) printOnLeds(0b0110);
@@ -161,5 +165,5 @@ void loop()
   else printOnLeds(0b0);
 
   val = calcValue(val);
-  delay(50); // delay for
+  delay(50); // delay for LCD
 } // loop
