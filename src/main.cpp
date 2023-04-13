@@ -22,28 +22,23 @@ const int dataPin = 12;
 /// przerwania
 const int buttonPin = 2;
 volatile bool muteRadioFlag = false;
-const short DEBOUCE_DELAY = 10;
 
-///PWM
-const int PwmPin = 5;
-
-int mapAnalogFreq(int val)
-{
-  return (((float)val / (float)1024) * 100 + 900);
-}
+///buzzer
+const int buzzerPin = 5;
 
 // TODO: Przycisk dziala dopiero po pewnym czasie hmmm...
 // TODO: Deboucing w tekiej fromie praktycznie zawodzi
 
 void muteRadio() {
-  int startTick = millis();
-
-  if(millis() - startTick > DEBOUCE_DELAY) {
-
-      if(digitalRead(buttonPin) == LOW) {
-        muteRadioFlag = !muteRadioFlag;
-      }
+  volatile static unsigned long lastDebounceTime = 0; //czas ostatniej zmiany stanu przycisku
+  unsigned long debounceDelay = 100; //czas, przez który należy ignorować zmianę stanu przycisku po jego naciśnięciu
+  unsigned long currentTime = millis(); //pobranie aktualnego czasu
+  
+  if (currentTime - lastDebounceTime > debounceDelay) { //jeśli upłynął czas debounceDelay od ostatniej zmiany stanu przycisku
+    
+    muteRadioFlag = !muteRadioFlag; //zmiana stanu przycisku (naciśnięty <-> zwolniony)
   }
+  lastDebounceTime = currentTime; //zapisanie czasu ostatniej zmiany stanu przycisku
 } // muteRadio
 
 
@@ -51,8 +46,8 @@ void setup()
 {
   delay(3000);
 
-  //PWM - Buzzer
-  pinMode(PwmPin, OUTPUT);
+  //Buzzer
+  pinMode(buzzerPin, OUTPUT);
 
   // shift register setup
   pinMode(latchPin, OUTPUT);
@@ -61,7 +56,7 @@ void setup()
 
   // przerwania
   pinMode(buttonPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(buttonPin), muteRadio, FALLING);
+  attachInterrupt(digitalPinToInterrupt(buttonPin), muteRadio, LOW);
 
   // open the Serial port
   Serial.begin(9600);
@@ -92,7 +87,8 @@ void setup()
 
   // Set all radio setting to the fixed values.
   int newVal = analogRead(A1);
-  newVal = mapAnalogFreq(newVal);
+  //newVal = mapAnalogFreq(newVal);
+  newVal = map(newVal, 0, 1023, 900, 1000);
 
   radio.setBandFrequency(FIX_BAND, newVal * 10);
   radio.setVolume(FIX_VOLUME);
@@ -114,11 +110,11 @@ void updateLcd()
 int calcValue(int oldVal)
 {
   int newVal = analogRead(A1);
-  newVal = mapAnalogFreq(newVal);
+  newVal = map(newVal, 0, 1023, 900, 1000);
 
   if (oldVal != newVal)
   {
-    tone(PwmPin, 500, 10);
+    tone(buzzerPin, 500, 10);
     radio.setFrequency(newVal * 10);
     return newVal;
   }
