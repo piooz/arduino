@@ -12,7 +12,7 @@
 #define FIX_VOLUME 2           ///< The volume that will be set by this sketch is level 4.
 
 RDA5807M radio; // Create an instance of Class for RDA5807M Chip
-LiquidCrystal_I2C lcd(0x27, 20, 4);
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // rejestr przesowny
 const int latchPin = 10;
