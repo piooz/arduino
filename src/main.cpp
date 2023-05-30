@@ -26,9 +26,6 @@ volatile bool muteRadioFlag = false;
 ///buzzer
 const int buzzerPin = 5;
 
-// TODO: Przycisk dziala dopiero po pewnym czasie hmmm...
-// TODO: Deboucing w tekiej fromie praktycznie zawodzi
-
 void muteRadio() {
   volatile static unsigned long lastDebounceTime = 0; //czas ostatniej zmiany stanu przycisku
   unsigned long debounceDelay = 100; //czas, przez który należy ignorować zmianę stanu przycisku po jego naciśnięciu
@@ -98,7 +95,7 @@ void setup()
   radio.setBassBoost(false);
 } // setup
 
-void updateLcd()
+void printFreqOnLcd()
 {
   //lcd.clear();
   char s[12];
@@ -116,27 +113,24 @@ int calcValue(int oldVal)
   {
     tone(buzzerPin, 500, 10);
     radio.setFrequency(newVal * 10);
+    muteRadioFlag = false;
+    printFreqOnLcd();
     return newVal;
   }
-
-  updateLcd();
 
   return oldVal;
 } // calcValue
 
-/// show the current chip data every 3 seconds.
-int val = 0;
 
 void printOnLeds(int val)
 {
     digitalWrite(latchPin, LOW);
-
     shiftOut(dataPin, clockPin, MSBFIRST, val);
-
     digitalWrite(latchPin, HIGH);
-
     delay(100);
 }
+
+int val = 0;
 
 void loop()
 {
@@ -161,5 +155,5 @@ void loop()
   else printOnLeds(0b0);
 
   val = calcValue(val);
-  delay(50); // delay for LCD
+  // delay(50); // delay for LCD
 } // loop
