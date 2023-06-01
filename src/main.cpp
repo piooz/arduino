@@ -1,9 +1,9 @@
 #include <Arduino.h>
 #include <Wire.h>
 
-#include <radio.h>
+#include <radio.h> // RADIO by Matthias Hertel
 #include <RDA5807M.h>
-#include <LiquidCrystal_I2C.h>
+#include <LiquidCrystal_I2C.h> // LiquidCrystal_I2C by marcoSchwartz
 
 // ----- Fixed settings here. -----
 
