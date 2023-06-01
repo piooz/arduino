@@ -9,23 +9,27 @@
 
 #define FIX_BAND RADIO_BAND_FM ///< The band that will be tuned by this sketch is FM.
 #define FIX_STATION 9350       ///< The station that will be tuned by this sketch is 89.30 MHz.
-#define FIX_VOLUME 2           ///< The volume that will be set by this sketch is level 4.
+#define FIX_VOLUME 5           ///< The volume that will be set by this sketch is level 4.
 
 RDA5807M radio; // Create an instance of Class for RDA5807M Chip
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // rejestr przesowny
-const int latchPin = 10;
-const int clockPin = 11;
-const int dataPin = 12;
+#define latchPin 10
+#define clockPin 11
+#define dataPin 12
 
 /// przerwania
-const int buttonPin = 2;
+#define buttonPin 2
 volatile bool muteRadioFlag = false;
 
 ///buzzer
-const int buzzerPin = 5;
+#define buzzerPin 5
 
+/*!
+ *  @brief    IQR funtion on buttonClick
+ *  @returns  void
+ */
 void muteRadio() {
   volatile static unsigned long lastDebounceTime = 0; //czas ostatniej zmiany stanu przycisku
   unsigned long debounceDelay = 100; //czas, przez który należy ignorować zmianę stanu przycisku po jego naciśnięciu
@@ -39,6 +43,10 @@ void muteRadio() {
 } // muteRadio
 
 
+/*!
+ *  @brief    setup project
+ *  @returns  void
+ */
 void setup()
 {
   delay(3000);
@@ -85,16 +93,20 @@ void setup()
   // Set all radio setting to the fixed values.
   int newVal = analogRead(A1);
   //newVal = mapAnalogFreq(newVal);
-  newVal = map(newVal, 0, 1023, 900, 1000);
+  newVal = map(newVal, 0, 1023, 900, 970);
 
   radio.setBandFrequency(FIX_BAND, newVal * 10);
   radio.setVolume(FIX_VOLUME);
   radio.setMono(false);
   radio.setMute(muteRadioFlag);
   radio.setSoftMute(true);
-  radio.setBassBoost(false);
+  radio.setBassBoost(true);
 } // setup
 
+/*!
+ *  @brief    print frequency on lcd display
+ *  @returns  void
+ */
 void printFreqOnLcd()
 {
   //lcd.clear();
@@ -104,16 +116,21 @@ void printFreqOnLcd()
   lcd.print(s);
 }
 
+/*!
+ *  @brief    read analog and chagenge ferequency.
+ *  @param oldVal  old analog value to comparison
+ *  @returns  int updated value
+ */
 int calcValue(int oldVal)
 {
   int newVal = analogRead(A1);
-  newVal = map(newVal, 0, 1023, 900, 1000);
+  newVal = map(newVal, 0, 1023, 900, 970);
 
   if (oldVal != newVal)
   {
     tone(buzzerPin, 500, 10);
     radio.setFrequency(newVal * 10);
-    muteRadioFlag = false;
+    radio.setMute(muteRadioFlag);
     printFreqOnLcd();
     return newVal;
   }
@@ -121,17 +138,25 @@ int calcValue(int oldVal)
   return oldVal;
 } // calcValue
 
-
+/*!
+ *  @brief      shiftoutBits
+ *  @param val  8 bit value 
+ *  @returns    void
+ */
 void printOnLeds(int val)
 {
     digitalWrite(latchPin, LOW);
     shiftOut(dataPin, clockPin, MSBFIRST, val);
     digitalWrite(latchPin, HIGH);
-    delay(100);
+    // delay(100);
 }
 
 int val = 0;
 
+/*!
+ *  @brief    main loop function
+ *  @returns  void
+ */
 void loop()
 {
   struct RADIO_INFO info = {};
